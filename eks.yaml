@@ -1,0 +1,45 @@
+Description: Vini EKS Cluster
+
+Parameters:
+
+  Proj:
+    Type: String
+    Default: vini
+
+  Env:
+    Type: String
+    Default: dev
+
+Resources:
+
+  EksCluster:
+    Type: "AWS::EKS::Cluster"
+    Properties:
+      Name: !Sub ${Proj}-${Env}
+      RoleArn: !GetAtt ClusterServiceRole.Arn
+      ResourcesVpcConfig: 
+        SecurityGroupIds:
+          !Split
+            - ','
+            - Fn::ImportValue: 
+                !Sub ${Proj}-${Env}-control-plane-sg-list
+        SubnetIds:
+          !Split
+            - ','
+            - Fn::ImportValue: 
+                !Sub ${Proj}-${Env}-vpc-public-subnets
+
+  ClusterServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: !Sub ${Proj}-${Env}-cluster
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: eks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
