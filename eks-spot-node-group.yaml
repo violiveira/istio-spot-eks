@@ -1,0 +1,73 @@
+Description: Spot Fleet as Node Group for EKS
+
+Parameters:
+
+  Proj:
+    Type: String
+    Default: vini
+
+  Env:
+    Type: String
+    Default: dev
+
+  FleetInstanceTypes:
+    Type: CommaDelimitedList
+    Default: "m5.large,m5.xlarge,m5a.large,m5a.xlarge,m4.large,m4.xlarge,c5.large,c5.xlarge,c4.large,c4.xlarge"
+
+  InstanceKey:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: vini-aws-eu-central-1
+
+  FleetTargetCapacity:
+    Type: String
+    Default: 3
+
+  FleetMinCapacity:
+    Type: Number
+    Default: 1
+
+  FleetMaxCapacity:
+    Type: Number
+    Default: 4
+
+  CpuTargetValue:
+    Type: Number
+    Default: 70
+
+  MemTargetValue:
+    Type: Number
+    Default: 90
+
+  ScaleInCooldown:
+    Type: Number
+    Default: 240
+
+  ScaleOutCooldown:
+    Type: Number
+    Default: 120
+
+  ImageId:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: /aws/service/eks/optimized-ami/1.14/amazon-linux-2/recommended/image_id
+    Description: AWS Systems Manager Parameter Store parameter of the AMI ID for the worker node instances.
+
+Resources:
+
+  NodeInstanceRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${Proj}-${Env}-eks-node
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Sub "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+        - !Sub "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+        - !Sub "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  
