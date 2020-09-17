@@ -13,10 +13,11 @@ Parameters:
 Resources:
 
   EksCluster:
-    Type: "AWS::EKS::Cluster"
+    Type: AWS::EKS::Cluster
     Properties:
       Name: !Sub ${Proj}-${Env}
       RoleArn: !GetAtt ClusterServiceRole.Arn
+      Version: 1.17
       ResourcesVpcConfig: 
         SecurityGroupIds:
           !Split
