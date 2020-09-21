@@ -12,7 +12,7 @@ Parameters:
 
   InstanceTypesNodeGroup1:
     Type: CommaDelimitedList
-    Default: "m5.large, m5d.large, m5n.large, m5dn.large, m5a.large, m4.large"
+    Default: 'm5.large, m5d.large, m5n.large, m5dn.large, m5a.large, m4.large'
 
   InstanceKey:
     Type: AWS::EC2::KeyPair::KeyName
@@ -24,11 +24,11 @@ Parameters:
 
   MaxSizeNodeGroup1:
     Type: Number
-    Default: 1
+    Default: 4
 
   MinSizeNodeGroup1:
     Type: Number
-    Default: 4
+    Default: 1
 
   ImageId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
@@ -42,7 +42,7 @@ Parameters:
 Resources:
 
   NodeInstanceRole:
-    Type: "AWS::IAM::Role"
+    Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub ${Proj}-${Env}-eks-node
       Path: /
@@ -60,28 +60,24 @@ Resources:
         - "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 
   NodeInstanceProfile:
-    Type: "AWS::IAM::InstanceProfile"
+    Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
         - Ref: NodeInstanceRole
 
   NodeSecurityGroup:
-    Type: "AWS::EC2::SecurityGroup"
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for all nodes in the cluster
       VpcId:
         Fn::ImportValue: !Sub ${Proj}-${Env}-vpc-id
       Tags:
-        - Key:
-            !Join 
-              - ''
-              - - kubernetes.io/cluster/
-                - Fn::ImportValue: !Sub ${Proj}-${Env}-eks-cluster-name
+        - Key: !Sub kubernetes.io/cluster/${Proj}-${Env}
           Value: owned
 
   NodeSecurityGroupIngress:
-    Type: "AWS::EC2::SecurityGroupIngress"
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow node to communicate with each other
       GroupId: !Ref NodeSecurityGroup
@@ -91,7 +87,7 @@ Resources:
       SourceSecurityGroupId: !Ref NodeSecurityGroup
 
   NodeSecurityGroupFromControlPlaneIngress:
-    Type: "AWS::EC2::SecurityGroupIngress"
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow worker Kubelets and pods to receive communication from the cluster control plane
       GroupId: !Ref NodeSecurityGroup
@@ -99,10 +95,10 @@ Resources:
       ToPort: 65535
       IpProtocol: tcp
       SourceSecurityGroupId:
-        Fn::ImportValue: !Sub ${Proj}-${Env}-cluster-sg
+        Fn::ImportValue: !Sub ${Proj}-${Env}-eks-cluster-sg
 
   NodeSecurityGroupFromControlPlaneOn443Ingress:
-    Type: "AWS::EC2::SecurityGroupIngress"
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow pods running extension API servers on port 443 to receive communication from cluster control plane
       GroupId: !Ref NodeSecurityGroup
@@ -110,10 +106,10 @@ Resources:
       ToPort: 443
       IpProtocol: tcp
       SourceSecurityGroupId:
-        Fn::ImportValue: !Sub ${Proj}-${Env}-cluster-sg
+        Fn::ImportValue: !Sub ${Proj}-${Env}-eks-cluster-sg
 
   ClusterControlPlaneSecurityGroupIngress:
-    Type: "AWS::EC2::SecurityGroupIngress"
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       Description: Allow pods to communicate with the cluster API Server
       GroupId:
@@ -124,7 +120,7 @@ Resources:
       SourceSecurityGroupId: !Ref NodeSecurityGroup
 
   ControlPlaneEgressToNodeSecurityGroup:
-    Type: "AWS::EC2::SecurityGroupEgress"
+    Type: AWS::EC2::SecurityGroupEgress
     Properties:
       Description: Allow the cluster control plane to communicate with worker Kubelet and pods
       GroupId:
@@ -135,7 +131,7 @@ Resources:
       IpProtocol: tcp
 
   ControlPlaneEgressToNodeSecurityGroupOn443:
-    Type: "AWS::EC2::SecurityGroupEgress"
+    Type: AWS::EC2::SecurityGroupEgress
     Properties:
       Description: Allow the cluster control plane to communicate with pods running extension API servers on port 443
       GroupId:
@@ -157,10 +153,8 @@ Resources:
         KeyName: !Ref InstanceKey
         Monitoring:
           Enabled: true
-        NetworkInterfaces:
-          - DeviceIndex: 0
-            Groups:
-              - Fn::ImportValue: !Sub ${Proj}-${Env}-container-instance-sg
+        SecurityGroupIds:
+          - !Ref NodeSecurityGroup
         BlockDeviceMappings:
           - DeviceName: /dev/xvda
             Ebs:
@@ -215,6 +209,13 @@ Resources:
             - InstanceType: !Select [3, !Ref InstanceTypesNodeGroup1]
             - InstanceType: !Select [4, !Ref InstanceTypesNodeGroup1]
             - InstanceType: !Select [5, !Ref InstanceTypesNodeGroup1]
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: true
+          Value: !Sub ${Proj}-${Env}-node-group-1
+        - Key: !Sub kubernetes.io/cluster/${Proj}-${Env}
+          PropagateAtLaunch: true
+          Value: owned
     # UpdatePolicy:
     #   AutoScalingRollingUpdate:
     #     MaxBatchSize: 1
